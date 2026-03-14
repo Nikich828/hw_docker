@@ -1,0 +1,33 @@
+# Используем данный образ(from-взять готовый образ и строить на его основе) и даем ему аллиас(as builder) для дальнейшего обращения к данной стадии сборки.
+FROM python:3.12-bullseye as builder
+# Рабочая директория, все дальнейшие команды будут выполняться внутри контейнера в этой папке.
+WORKDIR /app
+
+# Устанавливаем  системные пакеты (RUN выполняет команды внутри образа, каждый RUN это новый слой, в данном случае && использовали для экономии, т.к. их кол-во ограничено.)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc
+
+# venv это виртуальное оуркжение, т.е изолированная копия питона со своими пакетами, если было бы несколько проектов на питоне. без виртуалки были бы конфликты.
+RUN python -m venv /app/venv
+# далее задается системная переменная PATH, в случае поиска python, запрос шел бы в первую очередь по этому пути.
+ENV PATH="/app/venv/bin:$PATH"
+# тут копируем по пути откуда и куда, т.е копируем из указанного файла в рабочую директори /app.
+COPY requirements.txt ./
+# Кэширование для ускорение повторных сборок, при повторной сбокре будет брать отсюда ~/.cache/pip 
+RUN --mount=type=cache,target=~/.cache/pip pip install -r requirements.txt
+
+FROM python:3.12-slim as worker
+WORKDIR /app
+# создание непривилегированного пользователя, приложение не будет работать от рута.
+RUN addgroup --system python && \
+    adduser --system --disabled-password  --ingroup python python && chown python:python /app
+# переключились на этого пользователя
+USER python
+#тут копирование виртуального оркужения из builder, --chown=python:python устанавливаем владельца, затем берем файлы по алиусу первого стейджа --from=builder, копируем папку /app/venv в ./venv
+COPY --chown=python:python --from=builder /app/venv ./venv
+#тут копирование кода
+COPY --chown=python:python . .
+
+ENV PATH="/app/venv/bin:$PATH"
+# команды по-умолчанию
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
