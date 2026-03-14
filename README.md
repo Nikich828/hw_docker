@@ -230,7 +230,6 @@ REPO_URL="https://github.com/Nikich828/shvirtd-example-python.git"
 PROJECT_DIR="/opt/myproject"
 
 echo "1. Клонируем репозиторий."
-sudo rm -rf $PROJECT_DIR 2>/dev/null
 sudo git clone $REPO_URL $PROJECT_DIR
 cd $PROJECT_DIR
 
